@@ -1,0 +1,129 @@
+\section{Thiết lập cụm Hadoop}
+
+Phần này trình bày quá trình thiết lập và cấu hình hệ thống Hadoop \cite{white2012hadoop}. Để khảo sát chi tiết kiến trúc phân tán và đáp ứng các tiêu chí của bài thực hành, hệ thống được triển khai theo hai mô hình: giả phân tán (Pseudo-distributed) thông qua công cụ \texttt{silicoflare/docker-hadoop} và phân tán hoàn toàn (Fully-distributed) thông qua \texttt{docker-compose}. Nền tảng ảo hóa Docker được sử dụng để đảm bảo tính độc lập và khả năng tái hiện của môi trường thực thi.
+
+\subsection{Khởi tạo cụm Pseudo-distributed}
+Cụm giả phân tán được triển khai bằng kịch bản \texttt{hadock-install}. Kịch bản này thiết lập tự động một bộ chứa (container) bao gồm đầy đủ các dịch vụ lõi như NameNode, DataNode và YARN.
+
+Quá trình bắt đầu bằng việc tải và cấp quyền thực thi cho tệp lệnh cài đặt (Hình \ref{fig:hadock_install}). 
+
+\begin{figure}[H]
+    \centering
+    % FILL-IN: [USER] Add image here.
+    % Suggested search: "curl -fsSL https://bit.ly/hadock-install terminal screenshot"
+    % Recommended size: width=0.8\textwidth
+    % \includegraphics[width=0.8\textwidth]{images/hadock-install.png}
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
+        \textit{[Placeholder: Terminal hiển thị quá trình chạy script cài đặt hadock thành công]}
+    \vspace{2cm}}}
+    \caption{Thực thi kịch bản cài đặt tự động môi trường Hadoop Pseudo-distributed.}
+    \label{fig:hadock_install}
+\end{figure}
+
+Sau khi truy cập vào bộ chứa, lệnh \texttt{init} được thực thi để kích hoạt các tiến trình. Lệnh \texttt{jps} được sử dụng để xác minh danh sách các dịch vụ Java đang hoạt động.
+
+\begin{figure}[H]
+    \centering
+    % FILL-IN: [USER] Add image here.
+    % Suggested search: "hadock init and jps command output"
+    % Recommended size: width=0.8\textwidth
+    % \includegraphics[width=0.8\textwidth]{images/hadock-init.png}
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
+        \textit{[Placeholder: Ảnh chụp lệnh init và jps hiển thị NameNode, DataNode, ResourceManager]}
+    \vspace{2cm}}}
+    \caption{Khởi tạo các thành phần lõi và kiểm tra trạng thái tiến trình Hadoop.}
+    \label{fig:hadock_init}
+\end{figure}
+
+\subsection{Khởi tạo cụm Fully-distributed}
+Để cấu hình cụm phân tán hoàn toàn và đáp ứng tiêu chí điểm thưởng của bài thực hành (có tối thiểu hai nút công nhân - workers), hệ thống sử dụng công cụ \texttt{docker-compose} kết hợp với các hình ảnh hệ thống (images) từ dự án mã nguồn mở Big Data Europe (\texttt{bde2020}).
+
+Quá trình thiết lập được tinh chỉnh có chủ đích thông qua hai thành phần cấu hình chính:
+
+\begin{itemize}
+    \item \textbf{Kiến trúc hệ thống (\texttt{docker-compose.yml}):} Tệp cấu hình được tùy biến để khởi tạo một NameNode, một ResourceManager và đặc biệt nhân bản thành hai nút dữ liệu (\texttt{datanode1}, \texttt{datanode2}). Nhằm giải quyết bài toán "race condition" trong hệ thống phân tán, cơ chế đồng bộ được thiết lập thông qua biến \texttt{SERVICE\_PRECONDITION}. Cơ chế này buộc các DataNode và ResourceManager phải liên tục kiểm tra tín hiệu (ping) và chỉ khởi động khi NameNode đã sẵn sàng trên cổng 9870, đảm bảo tính toàn vẹn của cụm.
+    \item \textbf{Tham số môi trường (\texttt{hadoop.env}):} Thay vì can thiệp thủ công vào các tệp XML bên trong bộ chứa, hệ thống tận dụng cơ chế biên dịch tự động của \texttt{bde2020}. Các biến môi trường có tiền tố \texttt{CORE\_CONF}, \texttt{HDFS\_CONF}, hoặc \texttt{YARN\_CONF} sẽ được bộ mã tự động chuyển đổi thành các thẻ tương ứng trong \texttt{core-site.xml}, \texttt{hdfs-site.xml} và \texttt{yarn-site.xml}. Đơn cử, tham số \texttt{CORE\_CONF\_fs\_defaultFS} sẽ định tuyến toàn bộ kết nối hệ thống tệp về địa chỉ \texttt{hdfs://namenode:9000}.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    % FILL-IN: [USER] Add image here.
+    % Suggested search: "hadoop fully distributed docker compose 2 datanodes"
+    % Recommended size: width=0.8\textwidth
+    % \includegraphics[width=0.8\textwidth]{images/fully-config.png}
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
+        \textit{[Placeholder: Ảnh chụp nội dung file docker-compose.yml và hadoop.env của cụm Fully-distributed]}
+    \vspace{2cm}}}
+    \caption{Cấu hình hệ thống phân tán hoàn toàn with hai nút dữ liệu.}
+    \label{fig:fully_config}
+\end{figure}
+
+Hệ thống được khởi tạo thông qua lệnh \texttt{docker-compose up -d}. Lệnh \texttt{docker ps} (Hình \ref{fig:fully_ps}) xác nhận trạng thái liên kết và vận hành của bốn bộ chứa độc lập.
+
+\begin{figure}[H]
+    \centering
+    % FILL-IN: [USER] Add image here.
+    % Suggested search: "docker ps hadoop cluster 4 containers"
+    % Recommended size: width=0.8\textwidth
+    % \includegraphics[width=0.8\textwidth]{images/fully-ps.png}
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
+        \textit{[Placeholder: Kết quả lệnh docker ps hiển thị 4 containers của cụm phân tán đang hoạt động]}
+    \vspace{2cm}}}
+    \caption{Trạng thái hoạt động của cụm Hadoop phân tán hoàn toàn.}
+    \label{fig:fully_ps}
+\end{figure}
+
+\subsection{Xử lý sự cố}
+Trong quá trình triển khai, một số sự cố tiềm ẩn và thực tế đã được ghi nhận:
+
+\subsubsection{Lỗi sai định dạng lệnh cài đặt (Typo Error)}
+\textbf{Mô tả lỗi:} Khi sử dụng tài liệu từ kho mã nguồn \texttt{silicoflare/docker-hadoop}, sau khi thực thi lệnh tải mã nguồn, shell trả về thông báo lỗi \texttt{fish: Unknown command: hadock} lúc khởi chạy môi trường.
+
+\begin{figure}[H]
+    \centering
+    % FILL-IN: [USER] Add image here.
+    % Suggested search: "fish unknown command hadock terminal"
+    % Recommended size: width=0.8\textwidth
+    % \includegraphics[width=0.8\textwidth]{images/hadock-typo-error.png}
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
+        \textit{[Placeholder: Terminal hiển thị lỗi Unknown command: hadock]}
+    \vspace{2cm}}}
+    \caption{Lỗi không tìm thấy lệnh khởi tạo do sai sót cấu trúc từ kịch bản gốc.}
+    \label{fig:typo_error}
+\end{figure}
+
+\textbf{Cách khắc phục:} Kiểm tra tệp tin thực thi cho thấy tác giả mã nguồn đã ghi sai tên tệp đầu ra thành \texttt{hadoock} (thừa một ký tự 'o') so với lệnh gọi. Lỗi được xử lý bằng cách đổi tên tệp thực thi trong thư mục hệ thống thông qua lệnh \texttt{mv}:
+\begin{lstlisting}[language=bash, numbers=none]
+sudo mv /usr/bin/hadoock /usr/bin/hadock
+\end{lstlisting}
+
+\subsubsection{Lỗi cấu hình mạng Java (Dự kiến khi chạy file xác thực)}
+\textbf{Mô tả lỗi:} Trong một số trường hợp, lệnh thực thi tệp \texttt{hadoop-test.jar} có thể ném ra ngoại lệ liên quan đến định tuyến mạng khi Java tìm kiếm card mạng vật lý.
+
+\begin{figure}[H]
+    \centering
+    % FILL-IN: [USER] Add image here.
+    % Suggested search: "hadoop Exception in thread main null Main getMac"
+    % Recommended size: width=0.8\textwidth
+    % \includegraphics[width=0.8\textwidth]{images/hadoop-network-error.png}
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
+        \textit{[Placeholder: Terminal hiển thị log lỗi Exception in thread main null... Main getMac (Nếu có)]}
+    \vspace{2cm}}}
+    \caption{Ngoại lệ cấu hình mạng Java ghi nhận được trong quá trình thực thi trên bộ chứa.}
+    \label{fig:network_error}
+\end{figure}
+
+\textbf{Cách khắc phục (Hoặc giải thích lý do không gặp lỗi):}
+% Điền cách bạn tra cứu Google và sửa lỗi, HOẶC giải thích theo luận điểm: do chạy trực tiếp bên trong container Docker nên mạng ảo đã được phân giải thành công và không bị lỗi này.
+\begin{figure}[H]
+    \centering
+    % FILL-IN: [USER] Add image here.
+    % Suggested search: "hadoop getMac null pointer exception fix"
+    % Recommended size: width=0.8\textwidth
+    % \includegraphics[width=0.8\textwidth]{images/hadoop-error-fix.png}
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
+        \textit{[Placeholder: Ảnh kết quả tìm kiếm Google HOẶC có thể xóa ảnh này nếu không gặp lỗi]}
+    \vspace{2cm}}}
+    \caption{Tra cứu thông tin và phương pháp xử lý sự cố giao diện mạng ảo.}
+    \label{fig:network_error_fix}
+\end{figure}

@@ -1,0 +1,67 @@
+\section{Mô hình lập trình MapReduce}
+
+WordCount là bài toán cơ sở minh họa cơ chế thực thi của mô hình MapReduce \cite{dean2004mapreduce}. Giải thuật phân rã khối dữ liệu văn bản lớn thành các đoạn nhỏ để đếm song song tần suất xuất hiện của từ, sau đó tổng hợp lại kết quả.
+
+\subsection{Cấu trúc mã nguồn}
+Hệ thống sử dụng ngôn ngữ Scala để lập trình các lớp Mapper và Reducer do khả năng tương tác tốt với hệ sinh thái Java. Mã nguồn thực hiện tách chuỗi theo từng dòng (Hình \ref{fig:scala_code}) và kiểm tra ký tự đầu tiên thay vì áp dụng biểu thức chính quy (Regex) trên toàn bộ tài liệu, nhằm đảm bảo hiệu suất tính toán phù hợp với xử lý dữ liệu lớn.
+
+\begin{figure}[H]
+    \centering
+    % FILL-IN: [USER] Add image here.
+    % Suggested search: "scala hadoop mapreduce map function snippet"
+    % Recommended size: width=0.8\textwidth
+    % \includegraphics[width=0.8\textwidth]{images/scala-code.png}
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
+        \textit{[Placeholder: Mã nguồn hàm map trong tệp WordCount.scala]}
+    \vspace{2cm}}}
+    \caption{Hàm ánh xạ (Map function) phân tách và lọc các từ theo ký tự bắt đầu.}
+    \label{fig:scala_code}
+\end{figure}
+
+\subsection{Biên dịch và thực thi}
+Mã nguồn được đóng gói thành tệp JAR sử dụng công cụ SBT (Simple Build Tool) và nộp lên hệ thống Hadoop thông qua lệnh \texttt{hadoop jar}.
+
+\begin{figure}[H]
+    \centering
+    % FILL-IN: [USER] Add image here.
+    % Suggested search: "sbt package success terminal"
+    % Recommended size: width=0.8\textwidth
+    % \includegraphics[width=0.8\textwidth]{images/sbt-build.png}
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
+        \textit{[Placeholder: Terminal hiển thị quá trình sbt package báo thành công]}
+    \vspace{2cm}}}
+    \caption{Quá trình biên dịch mã nguồn Scala thành tệp JAR.}
+    \label{fig:sbt_build}
+\end{figure}
+
+Tiến trình YARN phân bổ và giám sát quá trình tính toán, hiển thị trạng thái hoàn thành của các pha Map và Reduce qua log hệ thống.
+
+\begin{figure}[H]
+    \centering
+    % FILL-IN: [USER] Add image here.
+    % Suggested search: "hadoop jar mapreduce execution log"
+    % Recommended size: width=0.8\textwidth
+    % \includegraphics[width=0.8\textwidth]{images/mapreduce-run.png}
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
+        \textit{[Placeholder: Log terminal hiển thị map 100\% và reduce 100\%]}
+    \vspace{2cm}}}
+    \caption{Tiến trình thực thi tác vụ MapReduce phân tán.}
+    \label{fig:mapreduce_run}
+\end{figure}
+
+\subsection{Kết xuất dữ liệu}
+Kết quả thống kê tần suất từ được hệ thống ghi nhận vào HDFS dưới định dạng TSV (Tab-Separated Values). Dữ liệu này sau đó có thể được kết xuất ra môi trường cục bộ.
+
+\begin{figure}[H]
+    \centering
+    % FILL-IN: [USER] Add image here.
+    % Suggested search: "hdfs cat output part-r-00000 wordcount"
+    % Recommended size: width=0.5\textwidth
+    % \includegraphics[width=0.5\textwidth]{images/wordcount-result.png}
+    \fbox{\parbox{0.5\textwidth}{\centering\vspace{2cm}
+        \textit{[Placeholder: Terminal hiển thị nội dung tệp part-r-00000 dạng TSV]}
+    \vspace{2cm}}}
+    \caption{Kết quả thống kê xuất ra HDFS thành công.}
+    \label{fig:wordcount_result}
+\end{figure}
+

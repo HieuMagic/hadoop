@@ -1,0 +1,52 @@
+\section{Tương tác hệ thống tệp HDFS}
+
+Phần này minh họa các thao tác với hệ thống tệp phân tán Hadoop (HDFS) \cite{ghemawat2003google} thông qua giao diện dòng lệnh. Các lệnh tương tác được thực thi trực tiếp bên trong NameNode.
+
+\subsection{Tổ chức thư mục và tải dữ liệu}
+Hệ thống thư mục được khởi tạo với đường dẫn gốc \texttt{/hcmus}, tiếp theo là thư mục định danh sinh viên. Tệp dữ liệu \texttt{words.txt} được chuyển từ hệ thống tệp cục bộ vào không gian HDFS mới tạo.
+
+\begin{figure}[H]
+    \centering
+    % FILL-IN: [USER] Add image here.
+    % Suggested search: "hdfs dfs mkdir put commands terminal"
+    % Recommended size: width=0.8\textwidth
+    % \includegraphics[width=0.8\textwidth]{images/hdfs-setup.png}
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
+        \textit{[Placeholder: Chụp lệnh hdfs dfs -mkdir và hdfs dfs -put cùng kết quả]}
+    \vspace{2cm}}}
+    \caption{Khởi tạo cấu trúc thư mục và tải tệp văn bản lên HDFS.}
+    \label{fig:hdfs_setup}
+\end{figure}
+
+\subsection{Cấu hình phân quyền}
+Quyền truy cập dữ liệu được thiết lập bằng các lệnh \texttt{chmod} và \texttt{chown}. Tài khoản người dùng hệ thống được cấu hình để sở hữu vùng dữ liệu tương ứng. Lệnh \texttt{hdfs dfs -ls} xác minh cấu hình phân quyền hiện tại (Hình \ref{fig:hdfs_permissions}).
+
+\begin{figure}[H]
+    \centering
+    % FILL-IN: [USER] Add image here.
+    % Suggested search: "hdfs dfs chmod chown ls terminal output"
+    % Recommended size: width=0.8\textwidth
+    % \includegraphics[width=0.8\textwidth]{images/hdfs-permissions.png}
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
+        \textit{[Placeholder: Chụp các lệnh phân quyền và kết quả xác minh từ lệnh ls]}
+    \vspace{2cm}}}
+    \caption{Thiết lập và kiểm tra quyền sở hữu tệp tin trên HDFS.}
+    \label{fig:hdfs_permissions}
+\end{figure}
+
+\subsection{Thực thi tệp xác thực}
+Khả năng xử lý của hệ thống được kiểm chứng qua tệp thực thi \texttt{hadoop-test.jar}. Tiến trình trả về một tệp văn bản xác minh chứa định danh cá nhân của sinh viên, xác nhận hệ thống hoạt động đúng yêu cầu.
+
+\begin{figure}[H]
+    \centering
+    % FILL-IN: [USER] Add image here.
+    % Suggested search: "java jar hadoop-test.jar output"
+    % Recommended size: width=0.8\textwidth
+    % \includegraphics[width=0.8\textwidth]{images/hdfs-verification.png}
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
+        \textit{[Placeholder: Màn hình chạy lệnh java -jar và liệt kê tệp xác thực được sinh ra]}
+    \vspace{2cm}}}
+    \caption{Thực thi tệp Java JAR và xuất tệp xác thực cục bộ.}
+    \label{fig:hdfs_verification}
+\end{figure}
+

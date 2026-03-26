@@ -1,0 +1,29 @@
+\section{Bài tập WordCount với MapReduce}
+\label{sec:wordcount}
+
+% NỘI DUNG CHUNG cho cả nhóm, chỉ cần viết 1 lần (Transcript §5)
+% Rubric: WordCount = 5.0 pt, Code Quality = 0.5 pt
+% BẮT BUỘC dùng Scala, KHÔNG dùng Regex (Lab PDF)
+
+\subsection{Tải dữ liệu lên HDFS}
+% hdfs dfs -put words.txt → 0.5 pt
+
+\subsection{Đọc dữ liệu từ HDFS}
+% hdfs dfs -cat / -head xác nhận dữ liệu → 0.5 pt
+
+\subsection{Cấu trúc mã nguồn Scala}
+% Giải thích Mapper, Reducer, Driver
+% Tách từ → lấy ký tự đầu → so sánh {f,i,t,h,c,m,u,s}
+% KHÔNG dùng regex → 1.0 pt (MapReduce) + 0.5 pt (Scala)
+
+\subsection{Biên dịch và thực thi}
+% sbt package → hadoop jar → log map 100% reduce 100%
+% → 1.0 pt (export TSV)
+
+\subsection{Kết quả}
+% Nội dung file results.txt dạng TSV
+% → 1.0 pt (format + results correct)
+
+\subsection{Báo cáo chi tiết}
+% Giải thích luồng xử lý MapReduce
+% → 1.0 pt (detailed report)
