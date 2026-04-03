@@ -1,29 +1,170 @@
 \section{Tương tác HDFS và Xác thực}
 \label{sec:hdfs-commands}
 
-% Mỗi thành viên tự viết 1 subsection riêng (Transcript §5)
 % Rubric: "Followed the commands in prior instruction" = 1.0 pt
-% Rubric: "Not verified with Java file" = -4.5 pt (MẤT TOÀN BỘ phần Hadoop)
+% Rubric: "Not verified with Java file" = -4.5 pt (MUST run hadoop-test.jar)
 
-\subsection{Sinh viên: Lưu Trọng Hiếu --- 23120258}
+Phần này trình bày toàn bộ quá trình tương tác với hệ thống tệp phân tán HDFS (Hadoop Distributed File System) theo đúng quy trình yêu cầu của bài thực hành. Các thao tác bao gồm tạo cấu trúc thư mục, tải dữ liệu, phân quyền, và chạy tệp xác thực bắt buộc.
 
-\subsubsection{Tổ chức thư mục và tải dữ liệu}
-% hdfs dfs -mkdir /hcmus
-% hdfs dfs -mkdir /hcmus/23120258
-% hdfs dfs -put <file> /hcmus/23120258/
+\subsection{Tổ chức thư mục HDFS}
 
-\subsubsection{Quản lý người dùng và phân quyền}
-% Tạo user: khtn_23120258
-% chmod 744 /hcmus/23120258
-% chown khtn_23120258 /hcmus/23120258
-% hdfs dfs -ls xác minh
+\subsubsection{Tạo cấu trúc thư mục}
 
-\subsubsection{Thực thi tệp xác thực}
-% java -jar hadoop-test.jar <HDFS_PORT> /hcmus/23120258
-% Screenshot kết quả + nội dung file 23120258_verification.txt
-% LƯU Ý: IP phải khác nhau giữa các thành viên (Transcript §3)
+Trước tiên, tạo thư mục gốc \texttt{/hcmus} và thư mục con theo mã số sinh viên trên HDFS:
 
-% ===========================================================================
-% THÊM THÀNH VIÊN: Copy khối \subsection{} bên trên, đổi tên + MSSV
-% \subsection{Sinh viên: <Họ tên> --- <MSSV>}
-% ===========================================================================
+\begin{lstlisting}[language=bash, numbers=none]
+hdfs dfs -mkdir /hcmus
+hdfs dfs -mkdir /hcmus/23120258
+\end{lstlisting}
+
+Xác minh thư mục đã được tạo:
+
+\begin{lstlisting}[language=bash, numbers=none]
+hdfs dfs -ls /hcmus
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/hdfs-1.png}
+    \caption{Tạo thư mục \texttt{/hcmus/23120258} trên HDFS.}
+    \label{fig:hdfs-mkdir}
+\end{figure}
+
+\subsubsection{Tải tệp dữ liệu lên HDFS}
+
+Tải tệp \texttt{words.txt} (dữ liệu đầu vào cho WordCount) lên thư mục vừa tạo:
+
+\begin{lstlisting}[language=bash, numbers=none]
+hdfs dfs -put words.txt /hcmus/23120258/
+\end{lstlisting}
+
+Xác minh tệp đã được tải lên thành công:
+
+\begin{lstlisting}[language=bash, numbers=none]
+hdfs dfs -ls /hcmus/23120258/
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/hdfs-2.png}
+    \caption{Tải tệp \texttt{words.txt} lên thư mục \texttt{/hcmus/23120258} trên HDFS.}
+    \label{fig:hdfs-put}
+\end{figure}
+
+\subsection{Quản lý người dùng và phân quyền}
+
+\subsubsection{Tạo người dùng hệ thống}
+
+Tạo người dùng hệ thống với định danh theo quy ước \texttt{khtn\_<MSSV>}:
+
+\begin{lstlisting}[language=bash, numbers=none]
+sudo useradd khtn_23120258
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/hdfs-3.png}
+    \caption{Tạo người dùng hệ thống \texttt{khtn\_23120258}.}
+    \label{fig:hdfs-useradd}
+\end{figure}
+
+\subsubsection{Phân quyền thư mục và tệp HDFS}
+
+Thiết lập quyền truy cập \texttt{744} và gán chủ sở hữu cho \textbf{cả thư mục lẫn tệp dữ liệu}. Bước phân quyền tệp \texttt{words.txt} là bắt buộc để \texttt{hadoop-test.jar} xác thực thành công:
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Phan quyen thu muc
+hdfs dfs -chmod 744 /hcmus/23120258
+hdfs dfs -chown khtn_23120258 /hcmus/23120258
+
+# Phan quyen tep du lieu
+hdfs dfs -chmod 744 /hcmus/23120258/words.txt
+hdfs dfs -chown khtn_23120258 /hcmus/23120258/words.txt
+\end{lstlisting}
+
+Xác minh phân quyền đã được áp dụng đúng cho cả thư mục và tệp:
+
+\begin{lstlisting}[language=bash, numbers=none]
+hdfs dfs -ls /hcmus/
+hdfs dfs -ls /hcmus/23120258/
+\end{lstlisting}
+
+Kết quả mong đợi: cột quyền là \texttt{drwxr--r--}, cột chủ sở hữu là \texttt{khtn\_23120258} cho cả thư mục và tệp.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/hdfs-4.png}
+    \caption{Xác minh phân quyền và chủ sở hữu thư mục \texttt{/hcmus/23120258} và tệp \texttt{words.txt}.}
+    \label{fig:hdfs-chmod}
+\end{figure}
+
+\subsection{Thực thi tệp xác thực}
+
+\subsubsection{Chạy hadoop-test.jar}
+
+Tệp \texttt{hadoop-test.jar} được cung cấp bởi giảng viên nhằm xác minh rằng cụm Hadoop đã được thiết lập và cấu hình đúng. Kết quả của lệnh này tạo ra tệp \texttt{23120258\_verification.txt} chứa thông tin định danh duy nhất của máy tính (địa chỉ MAC).
+
+\begin{lstlisting}[language=bash, numbers=none]
+java -jar hadoop-test.jar 9000 /hcmus/23120258
+\end{lstlisting}
+
+Trong đó:
+\begin{itemize}
+    \item \texttt{9000} — cổng NameNode, khớp với cấu hình \texttt{fs.defaultFS=hdfs://localhost:9000} trong \texttt{core-site.xml}.
+    \item \texttt{/hcmus/23120258} — đường dẫn thư mục HDFS đã tạo và phân quyền ở các bước trước.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/hdfs-5.png}
+    \caption{Kết quả thực thi tệp xác thực \texttt{hadoop-test.jar}.}
+    \label{fig:hdfs-jar}
+\end{figure}
+
+\subsubsection{Nội dung tệp xác thực}
+
+Sau khi chạy thành công, tệp \texttt{23120258\_verification.txt} được tạo ra trong thư mục hiện tại:
+
+\begin{lstlisting}[language=bash, numbers=none]
+cat 23120258_verification.txt
+\end{lstlisting}
+
+\begin{lstlisting}[numbers=none]
+MAC=14-5A-FC-61-AE-51
+e19e8ebd39c585d3ff059cc52aca8ab5887158419a6d48d5a0a0aba37fc30082
+\end{lstlisting}
+
+Tệp chứa hai dòng: địa chỉ MAC của máy tính (duy nhất theo từng thành viên) và mã hash SHA-256 dùng để xác thực tính toàn vẹn. Giá trị MAC \texttt{14-5A-FC-61-AE-51} là định danh phần cứng của máy, đảm bảo mỗi thành viên có kết quả xác thực khác nhau.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/hdfs-6.png}
+    \caption{Nội dung tệp xác thực \texttt{23120258\_verification.txt}.}
+    \label{fig:hdfs-verification}
+\end{figure}
+
+\subsection{Tổng hợp lệnh HDFS sử dụng}
+
+Bảng~\ref{tab:hdfs-commands} tóm tắt toàn bộ các lệnh HDFS đã thực thi trong phần này.
+
+\begin{table}[H]
+\centering
+\caption{Tổng hợp các lệnh HDFS tương tác với cụm.}
+\label{tab:hdfs-commands}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Lệnh} & \textbf{Mục đích} \\
+\midrule
+\texttt{hdfs dfs -mkdir /hcmus} & Tạo thư mục gốc trên HDFS \\
+\texttt{hdfs dfs -mkdir /hcmus/23120258} & Tạo thư mục cá nhân theo MSSV \\
+\texttt{hdfs dfs -put words.txt /hcmus/23120258/} & Tải tệp dữ liệu lên HDFS \\
+\texttt{hdfs dfs -ls /hcmus/} & Liệt kê và xác minh nội dung thư mục \\
+\texttt{sudo useradd khtn\_23120258} & Tạo người dùng hệ thống \\
+\texttt{hdfs dfs -chmod 744 /hcmus/23120258} & Thiết lập quyền truy cập thư mục \\
+\texttt{hdfs dfs -chown khtn\_23120258 /hcmus/23120258} & Gán chủ sở hữu thư mục \\
+\texttt{hdfs dfs -chmod 744 /hcmus/23120258/words.txt} & Thiết lập quyền truy cập tệp dữ liệu \\
+\texttt{hdfs dfs -chown khtn\_23120258 /hcmus/23120258/words.txt} & Gán chủ sở hữu tệp dữ liệu \\
+\texttt{java -jar hadoop-test.jar 9000 /hcmus/23120258} & Chạy tệp xác thực bắt buộc \\
+\bottomrule
+\end{tabularx}
+\end{table}

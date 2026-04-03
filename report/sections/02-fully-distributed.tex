@@ -1,29 +1,668 @@
-\section{Thiết lập cụm Fully-distributed}
+\section{Thiết lập cụm Fully-Distributed}
 \label{sec:fully-distributed}
 
-% Nhóm n người cần n-1 lượt cài đặt fully-distributed (Lab PDF)
-% Có thể trùng phương thức: VM / physical machines (FAQ Q4)
 % Rubric: "YARN on VMs and physically distributed machines" = 1.5 pt
-% Mỗi lượt cài đặt = 1 subsection
-
-\subsection{Lượt 1 — Sinh viên: Lưu Trọng Hiếu --- 23120258}
-
-\subsubsection{Phương thức}
-% VM (Docker containers / VirtualBox / VMWare) hay Physical machines?
 % Tối thiểu 2 workers để được điểm bonus
 
-\subsubsection{Cấu hình hệ thống}
-% Kiến trúc: NameNode, ResourceManager, DataNode x N
-% Cấu hình: core-site.xml, hdfs-site.xml, yarn-site.xml, workers
+Phần này mô tả quá trình triển khai cụm Hadoop theo chế độ \textit{fully-distributed} trên nền tảng máy ảo (Virtual Machine). Không giống với chế độ pseudo-distributed chạy toàn bộ daemon trên một máy, chế độ fully-distributed phân tách các vai trò ra nhiều node vật lý (hoặc ảo) riêng biệt, phản ánh đúng kiến trúc Hadoop trong môi trường sản xuất.
 
-\subsubsection{Khởi tạo và xác minh}
-% start-dfs.sh, start-yarn.sh, jps trên từng node
-% Screenshot xác nhận tất cả nodes hoạt động
+\subsection{Kiến trúc tổng thể}
 
-\subsubsection{Xử lý sự cố}
-% Lỗi → tra cứu → sửa
+Cụm gồm \textbf{1 Master node} và \textbf{2 Worker node}, tất cả chạy trên máy ảo VirtualBox. Bảng~\ref{tab:cluster-nodes} mô tả vai trò của từng node.
 
-% ===========================================================================
-% THÊM LƯỢT CÀI ĐẶT: Copy khối \subsection{} bên trên
-% \subsection{Lượt 2 — Sinh viên: <Họ tên> --- <MSSV>}
-% ===========================================================================
+\begin{table}[H]
+\centering
+\caption{Cấu hình các node trong cụm fully-distributed.}
+\label{tab:cluster-nodes}
+\begin{tabularx}{\textwidth}{llllX}
+\toprule
+\textbf{Hostname} & \textbf{IP} & \textbf{RAM} & \textbf{vCPU} & \textbf{Vai trò} \\
+\midrule
+\texttt{master}  & \texttt{192.168.56.10} & 2 GB & 2 & NameNode, ResourceManager, SecondaryNameNode \\
+\texttt{worker1} & \texttt{192.168.56.11} & 1 GB & 1 & DataNode, NodeManager \\
+\texttt{worker2} & \texttt{192.168.56.12} & 1 GB & 1 & DataNode, NodeManager \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+\subsection{Chuẩn bị môi trường}
+
+\subsubsection{Cài đặt VirtualBox}
+
+VirtualBox được cài từ kho AUR thông qua \texttt{paru}. Cần cài thêm module kernel và extension pack:
+
+\begin{lstlisting}[language=bash, numbers=none]
+paru -S virtualbox virtualbox-host-modules-arch
+\end{lstlisting}
+
+Nạp toàn bộ kernel module cần thiết và thêm user vào nhóm \texttt{vboxusers}:
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Nap module chinh va mang
+sudo modprobe vboxdrv
+sudo modprobe vboxnetadp   # can cho Host-Only networking
+sudo modprobe vboxnetflt   # can cho Bridged networking
+
+# Them user vao nhom vboxusers
+sudo usermod -aG vboxusers $USER
+\end{lstlisting}
+
+Để các module tự động nạp sau mỗi lần khởi động:
+
+\begin{lstlisting}[language=bash, numbers=none]
+echo -e "vboxdrv\nvboxnetadp\nvboxnetflt" | \
+    sudo tee /etc/modules-load.d/virtualbox.conf
+\end{lstlisting}
+
+\textbf{Lưu ý:} Nếu gặp lỗi \texttt{/dev/vboxnetctl: No such file or directory} khi tạo mạng Host-Only, nguyên nhân là \texttt{vboxnetadp} chưa được nạp. Chạy lại \texttt{sudo modprobe vboxnetadp} trước khi thử lại.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/fd-2.png}
+    \caption{VirtualBox Manager sau khi cài đặt thành công.}
+    \label{fig:fd-vbox}
+\end{figure}
+
+\subsubsection{Thiết lập mạng Host-Only}
+
+Để các VM giao tiếp nội bộ, cần tạo card mạng Host-Only (\texttt{vboxnet0}) với dải \texttt{192.168.56.0/24}.
+
+\textbf{Cách 1 — Giao diện đồ họa (VirtualBox 7):} vào \texttt{File \textgreater{} Tools \textgreater{} Network Manager}, chọn tab \textbf{Host-only Networks}:
+
+\begin{enumerate}
+    \item Nhấn \textbf{Create} để tạo \texttt{vboxnet0}.
+    \item Đặt \textbf{IPv4 Address}: \texttt{192.168.56.1}, \textbf{IPv4 Mask}: \texttt{255.255.255.0}.
+    \item Tắt DHCP Server (dùng static IP thủ công trên mỗi VM).
+\end{enumerate}
+
+\textbf{Cách 2 — Dòng lệnh (VBoxManage):}
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Tao interface vboxnet0
+VBoxManage hostonlyif create
+
+# Thiet lap IP va subnet mask
+VBoxManage hostonlyif ipconfig vboxnet0 \
+    --ip 192.168.56.1 --netmask 255.255.255.0
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{images/fd-3.png}
+    \caption{Cấu hình mạng Host-Only \texttt{vboxnet0} trong VirtualBox 7 Network Manager.}
+    \label{fig:fd-hostnet}
+\end{figure}
+
+\subsubsection{Tạo máy ảo}
+
+Trước khi tạo VM, cần tải file ISO Ubuntu Server 22.04 từ trang chính thức:
+
+\begin{lstlisting}[language=bash, numbers=none]
+wget https://releases.ubuntu.com/22.04/ubuntu-22.04.5-live-server-amd64.iso
+\end{lstlisting}
+
+Tạo lần lượt 3 máy ảo với cấu hình theo Bảng~\ref{tab:cluster-nodes}. Các bước thực hiện cho từng VM:
+
+\begin{enumerate}
+    \item Trong VirtualBox Manager, nhấn \textbf{New} (hoặc \texttt{Ctrl+N}).
+    \item Điền thông tin cơ bản:
+        \begin{itemize}
+            \item \textbf{Name}: \texttt{master} (hoặc \texttt{worker1}, \texttt{worker2}).
+            \item \textbf{Type}: \texttt{Linux}.
+            \item \textbf{Version}: \texttt{Ubuntu (64-bit)}.
+        \end{itemize}
+    \item Cấp RAM: \textbf{2048 MB} cho master, \textbf{1024 MB} cho mỗi worker.
+    \item Tạo ổ đĩa ảo mới: chọn \textbf{VDI}, \textbf{Dynamically allocated}, dung lượng \textbf{20 GB}.
+    \item Sau khi tạo xong, vào \textbf{Settings} của VM:
+        \begin{itemize}
+            \item \textbf{Storage}: click vào \textbf{Empty} (dưới \textit{Controller: IDE})
+                  → nhấn icon đĩa bên phải → \textbf{Choose a disk file...}
+                  → chọn file \texttt{ubuntu-22.04.5-live-server-amd64.iso} → \textbf{OK}.
+            \item \textbf{Network > Adapter 1}: bật, loại \textbf{NAT} (mặc định).
+            \item \textbf{Network > Adapter 2}: bật, loại \textbf{Host-only Adapter}, chọn \texttt{vboxnet0}.
+        \end{itemize}
+    \item Khởi động VM — Ubuntu sẽ tự boot từ ISO. Cài đặt theo hướng dẫn, chọn \textbf{OpenSSH Server} khi được hỏi về phần mềm bổ sung.
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/fd-4.png}
+    \caption{Tạo máy ảo mới trong VirtualBox Manager.}
+    \label{fig:fd-vms}
+\end{figure}
+
+\textbf{Cấu hình IP tĩnh sau khi cài Ubuntu:} Sau khi cài xong, card Host-Only (\texttt{enp0s8}) chưa có IP. Thiết lập IP tĩnh qua \texttt{netplan} trên \textbf{từng VM}:
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Tren master: /etc/netplan/01-netcfg.yaml
+network:
+  version: 2
+  ethernets:
+    enp0s8:
+      addresses: [192.168.56.10/24]
+
+# Tren worker1: dia chi la 192.168.56.11/24
+# Tren worker2: dia chi la 192.168.56.12/24
+\end{lstlisting}
+
+Áp dụng và kiểm tra:
+
+\begin{lstlisting}[language=bash, numbers=none]
+sudo netplan apply
+ip addr show enp0s8
+ping master        # thu ping tu worker sang master
+\end{lstlisting}
+
+
+\subsubsection{Cấu hình mạng và hostname}
+
+Thực hiện trên \textbf{từng node} theo thứ tự sau:
+
+\textbf{Bước 1 — Thiết lập IP tĩnh qua netplan.}
+Xác định tên card Host-Only bằng \texttt{ip a}: card chưa có IP là card cần cấu hình (thường là \texttt{enp0s8}).
+
+\begin{lstlisting}[language=bash, numbers=none]
+sudo nano /etc/netplan/01-netcfg.yaml
+\end{lstlisting}
+
+Nội dung file trên từng node:
+
+\begin{lstlisting}[language=bash, numbers=none]
+# --- master: 192.168.56.10 ---
+network:
+  version: 2
+  ethernets:
+    enp0s8:
+      addresses:
+        - 192.168.56.10/24
+
+# --- worker1: 192.168.56.11 ---
+network:
+  version: 2
+  ethernets:
+    enp0s8:
+      addresses:
+        - 192.168.56.11/24
+
+# --- worker2: 192.168.56.12 ---
+network:
+  version: 2
+  ethernets:
+    enp0s8:
+      addresses:
+        - 192.168.56.12/24
+\end{lstlisting}
+
+Áp dụng cấu hình:
+
+\begin{lstlisting}[language=bash, numbers=none]
+sudo netplan apply
+ip addr show enp0s8   # xac nhan IP da duoc gan
+\end{lstlisting}
+
+\textbf{Bước 2 — Cập nhật \texttt{/etc/hosts}} trên \textbf{cả 3 node}:
+
+\begin{lstlisting}[language=bash, numbers=none]
+sudo nano /etc/hosts
+\end{lstlisting}
+
+Thêm 3 dòng sau vào cuối file (giữ nguyên các dòng có sẵn):
+
+\begin{lstlisting}[language=bash, numbers=none]
+192.168.56.10   master
+192.168.56.11   worker1
+192.168.56.12   worker2
+\end{lstlisting}
+
+\textbf{Bước 3 — Đặt hostname} tương ứng trên từng máy:
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Tren master
+sudo hostnamectl set-hostname master
+
+# Tren worker1
+sudo hostnamectl set-hostname worker1
+
+# Tren worker2
+sudo hostnamectl set-hostname worker2
+\end{lstlisting}
+
+\textbf{Bước 4 — Kiểm tra kết nối} từ master sang các worker:
+
+\begin{lstlisting}[language=bash, numbers=none]
+ping -c 3 worker1
+ping -c 3 worker2
+\end{lstlisting}
+
+Nếu ping thành công, các node đã thông mạng nội bộ.
+
+\subsubsection{Cài đặt Java và Hadoop trên master}
+
+Trước khi cấu hình SSH và sao chép sang worker, cài Java và Hadoop trên \textbf{master}:
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Cai Java
+sudo apt update
+sudo apt install -y openjdk-8-jdk
+
+# Xac nhan phien ban
+java -version
+\end{lstlisting}
+
+Tải và giải nén Hadoop 3.4.3:
+
+\begin{lstlisting}[language=bash, numbers=none]
+wget https://dlcdn.apache.org/hadoop/common/hadoop-3.4.3/hadoop-3.4.3.tar.gz
+
+sudo tar -xzf hadoop-3.4.3.tar.gz -C /usr/local/
+sudo mv /usr/local/hadoop-3.4.3 /usr/local/hadoop
+sudo chown -R hadoop:hadoop /usr/local/hadoop
+\end{lstlisting}
+
+Thêm biến môi trường vào \texttt{\textasciitilde/.bashrc}:
+
+\begin{lstlisting}[language=bash, numbers=none]
+echo 'export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64' >> ~/.bashrc
+echo 'export HADOOP_HOME=/usr/local/hadoop' >> ~/.bashrc
+echo 'export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin' >> ~/.bashrc
+source ~/.bashrc
+\end{lstlisting}
+
+Cấu hình \texttt{JAVA\_HOME} trong Hadoop:
+
+\begin{lstlisting}[language=bash, numbers=none]
+sudo nano /usr/local/hadoop/etc/hadoop/hadoop-env.sh
+# Tim dong: # export JAVA_HOME=
+# Sua thanh:
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+\end{lstlisting}
+
+Kiểm tra Hadoop hoạt động:
+
+\begin{lstlisting}[language=bash, numbers=none]
+hadoop version
+\end{lstlisting}
+
+\subsubsection{Cấu hình SSH không mật khẩu}
+
+Hadoop yêu cầu master có thể SSH vào các worker mà không cần mật khẩu để tự động khởi động/dừng daemon. Tạo cặp khóa trên master và phân phối public key:
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Tren master: tao cap khoa
+ssh-keygen -t rsa -P "" -f ~/.ssh/id_rsa
+
+# Sao chep public key sang tung worker
+ssh-copy-id hadoop@worker1
+ssh-copy-id hadoop@worker2
+
+# Kiem tra ket noi
+ssh hadoop@worker1 "hostname"
+ssh hadoop@worker2 "hostname"
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/fd-5.png}
+    \caption{Xác minh kết nối SSH không mật khẩu từ master sang các worker.}
+    \label{fig:fd-ssh}
+\end{figure}
+
+\subsubsection{Sao chép Hadoop sang các worker}
+
+Sau khi cài Java và Hadoop trên master, sao chép toàn bộ thư mục Hadoop sang các worker (cài Java trên worker trước):
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Cai Java tren worker1 va worker2
+sudo apt install -y openjdk-8-jdk
+
+# Tren master: sao chep Hadoop sang cac worker
+scp -r /usr/local/hadoop hadoop@worker1:/usr/local/
+scp -r /usr/local/hadoop hadoop@worker2:/usr/local/
+
+# Cap quyen tren tung worker (chay tren worker1, worker2)
+sudo chown -R hadoop:hadoop /usr/local/hadoop
+\end{lstlisting}
+
+
+\subsection{Cấu hình Hadoop}
+
+Tất cả cấu hình được thực hiện trên master, sau đó sao chép sang các worker.
+
+\subsubsection{hadoop-env.sh}
+
+Chỉ định đường dẫn Java cho các daemon:
+
+\begin{lstlisting}[language=bash, numbers=none]
+# $HADOOP_HOME/etc/hadoop/hadoop-env.sh
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+export HADOOP_HOME=/usr/local/hadoop
+export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
+\end{lstlisting}
+
+\subsubsection{core-site.xml}
+
+Chỉ định địa chỉ NameNode (dùng hostname của master):
+
+\begin{lstlisting}[language=xml, numbers=none]
+<configuration>
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://master:9000</value>
+  </property>
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>/home/hadoop/hdfs/tmp</value>
+  </property>
+</configuration>
+\end{lstlisting}
+
+\subsubsection{hdfs-site.xml}
+
+Cấu hình số bản sao (replication factor = 2 cho 2 DataNode) và đường dẫn lưu trữ dữ liệu:
+
+\begin{lstlisting}[language=xml, numbers=none]
+<configuration>
+  <property>
+    <name>dfs.replication</name>
+    <value>2</value>
+  </property>
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:///home/hadoop/hdfs/namenode</value>
+  </property>
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:///home/hadoop/hdfs/datanode</value>
+  </property>
+</configuration>
+\end{lstlisting}
+
+\subsubsection{yarn-site.xml}
+
+Chỉ định địa chỉ ResourceManager và cơ chế shuffle:
+
+\begin{lstlisting}[language=xml, numbers=none]
+<configuration>
+  <property>
+    <name>yarn.resourcemanager.hostname</name>
+    <value>master</value>
+  </property>
+  <property>
+    <name>yarn.resourcemanager.webapp.address</name>
+    <value>0.0.0.0:8088</value>
+  </property>
+  <property>
+    <name>yarn.nodemanager.aux-services</name>
+    <value>mapreduce_shuffle</value>
+  </property>
+  <property>
+    <name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
+    <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+  </property>
+</configuration>
+\end{lstlisting}
+
+\subsubsection{mapred-site.xml}
+
+Chỉ định framework MapReduce chạy trên YARN:
+
+\begin{lstlisting}[language=xml, numbers=none]
+<configuration>
+  <property>
+    <name>mapreduce.framework.name</name>
+    <value>yarn</value>
+  </property>
+  <property>
+    <name>mapreduce.application.classpath</name>
+    <value>$HADOOP_HOME/share/hadoop/mapreduce/*:
+           $HADOOP_HOME/share/hadoop/mapreduce/lib/*</value>
+  </property>
+</configuration>
+\end{lstlisting}
+
+\subsubsection{Tệp workers}
+
+Khai báo danh sách worker node (chỉ trên master):
+
+\begin{lstlisting}[language=bash, numbers=none]
+# $HADOOP_HOME/etc/hadoop/workers
+worker1
+worker2
+\end{lstlisting}
+
+\subsubsection{Phân phối cấu hình sang workers}
+
+Sao chép toàn bộ thư mục cấu hình sang các worker:
+
+\begin{lstlisting}[language=bash, numbers=none]
+scp -r $HADOOP_HOME/etc/hadoop hadoop@worker1:$HADOOP_HOME/etc/
+scp -r $HADOOP_HOME/etc/hadoop hadoop@worker2:$HADOOP_HOME/etc/
+\end{lstlisting}
+
+\subsection{Khởi động và xác minh}
+
+\subsubsection{Format NameNode}
+
+Chỉ thực hiện \textbf{một lần} trên master trước khi khởi động lần đầu:
+
+\begin{lstlisting}[language=bash, numbers=none]
+hdfs namenode -format
+\end{lstlisting}
+
+\subsubsection{Khởi động cụm}
+
+Từ master, khởi động toàn bộ HDFS và YARN. Hadoop sẽ tự động SSH sang các worker để khởi động DataNode và NodeManager:
+
+\begin{lstlisting}[language=bash, numbers=none]
+start-dfs.sh
+start-yarn.sh
+\end{lstlisting}
+
+\subsubsection{Kiểm tra tiến trình bằng jps}
+
+Chạy \texttt{jps} trên từng node để xác nhận daemon đang hoạt động đúng:
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Tren master: phai co NameNode, SecondaryNameNode, ResourceManager
+jps
+
+# Tren worker1/worker2: phai co DataNode, NodeManager
+ssh hadoop@worker1 "jps"
+ssh hadoop@worker2 "jps"
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/fd-6.png}
+    \caption{Kết quả \texttt{jps} trên các node xác nhận daemon đang hoạt động.}
+    \label{fig:fd-jps}
+\end{figure}
+
+\subsubsection{Giao diện Web HDFS và YARN}
+
+Hadoop cung cấp giao diện web để giám sát cụm:
+\begin{itemize}
+    \item \textbf{HDFS NameNode UI}: \texttt{http://192.168.56.10:9870} — xem trạng thái HDFS và DataNode.
+    \item \textbf{YARN ResourceManager UI}: \texttt{http://192.168.56.10:8088} — xem trạng thái YARN, NodeManager, và job history.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/fd-7.png}
+    \caption{Giao diện Web HDFS NameNode UI xác nhận 2 DataNode đang hoạt động.}
+    \label{fig:fd-webui}
+\end{figure}
+
+
+\subsection{Xử lý sự cố}
+
+
+\subsubsection{Lỗi: \texttt{/dev/vboxnetctl: No such file or directory}}
+
+Khi tạo mạng Host-Only trong VirtualBox, hệ thống báo lỗi:
+
+\begin{lstlisting}[language=bash, numbers=none]
+VBoxNetAdpCtl: Error while adding new interface: failed to open
+/dev/vboxnetctl: No such file or directory.
+Result Code: NS_ERROR_FAILURE (0x80004005)
+Component: HostNetworkInterfaceWrap
+\end{lstlisting}
+
+\textbf{Phân tích lỗi:} File thiết bị \texttt{/dev/vboxnetctl} không tồn tại, có nghĩa là kernel module \texttt{vboxnetadp} — chịu trách nhiệm quản lý các card mạng ảo Host-Only của VirtualBox — chưa được nạp vào kernel. Trên Arch Linux, các module VirtualBox không tự động được nạp sau khi cài đặt; người dùng phải nạp thủ công hoặc cấu hình để nạp tự động khi khởi động.
+
+\textbf{Tra cứu:} Tìm kiếm thông báo lỗi trên diễn đàn chính thức của VirtualBox xác nhận đây là vấn đề phổ biến với các bản phân phối Linux sử dụng kernel module không DKMS.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/fd-err-1.png}
+    \caption{Bài đăng trên diễn đàn VirtualBox.org xác nhận lỗi \texttt{vboxnetctl} do kernel module chưa được nạp.}
+    \label{fig:fd-err-vboxnet}
+\end{figure}
+
+\textbf{Cách khắc phục:} Nạp module \texttt{vboxnetadp} (và \texttt{vboxnetflt}) thủ công:
+
+\begin{lstlisting}[language=bash, numbers=none]
+sudo modprobe vboxnetadp
+sudo modprobe vboxnetflt
+\end{lstlisting}
+
+Để không phải nạp thủ công sau mỗi lần reboot, thêm vào danh sách module tự động:
+
+\begin{lstlisting}[language=bash, numbers=none]
+echo -e "vboxdrv\nvboxnetadp\nvboxnetflt" | \
+    sudo tee /etc/modules-load.d/virtualbox.conf
+\end{lstlisting}
+
+Sau khi chạy lệnh trên, thử lại tạo Host-Only network — \texttt{/dev/vboxnetctl} sẽ xuất hiện và thao tác thành công.
+
+\subsubsection{Lỗi: \texttt{scp: Permission denied} khi sao chép Hadoop sang worker}
+
+Khi chạy lệnh \texttt{scp} từ master để sao chép Hadoop sang \texttt{/usr/local/} trên worker, hệ thống báo lỗi:
+
+\begin{lstlisting}[language=bash, numbers=none]
+scp: /usr/local//hadoop: Permission denied
+\end{lstlisting}
+
+\textbf{Phân tích lỗi:} Thư mục \texttt{/usr/local/} trên Ubuntu Server mặc định thuộc quyền sở hữu của \texttt{root}. User \texttt{hadoop} không có quyền ghi trực tiếp vào đó, kể cả khi dùng \texttt{sudo scp} (vì \texttt{sudo} không được chuyển qua kết nối SSH từ xa).
+
+\textbf{Cách khắc phục:} Tạo thư mục đích và cấp quyền trên worker trước, rồi mới scp:
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Tren master: tao thu muc tren cac worker va cap quyen
+ssh hadoop@worker1 "sudo mkdir -p /usr/local/hadoop && \
+    sudo chown hadoop:hadoop /usr/local/hadoop"
+ssh hadoop@worker2 "sudo mkdir -p /usr/local/hadoop && \
+    sudo chown hadoop:hadoop /usr/local/hadoop"
+
+# Sao chep noi dung Hadoop
+scp -r /usr/local/hadoop/ hadoop@worker1:/usr/local/hadoop
+scp -r /usr/local/hadoop/ hadoop@worker2:/usr/local/hadoop
+\end{lstlisting}
+
+Hoặc sao chép vào thư mục home trước, sau đó dùng \texttt{sudo mv} trên từng worker:
+
+\begin{lstlisting}[language=bash, numbers=none]
+scp -r /usr/local/hadoop hadoop@worker1:~/
+scp -r /usr/local/hadoop hadoop@worker2:~/
+
+ssh hadoop@worker1 "sudo mv ~/hadoop /usr/local/ && \
+    sudo chown -R hadoop:hadoop /usr/local/hadoop"
+ssh hadoop@worker2 "sudo mv ~/hadoop /usr/local/ && \
+    sudo chown -R hadoop:hadoop /usr/local/hadoop"
+\end{lstlisting}
+
+\subsubsection{Lỗi: \texttt{Permission denied (publickey,password)} khi chạy \texttt{start-dfs.sh}}
+
+Khi chạy \texttt{start-dfs.sh}, xuất hiện lỗi:
+
+\begin{lstlisting}[language=bash, numbers=none]
+Starting namenodes on [master]
+master: hadoop@master: Permission denied (publickey,password).
+Starting secondary namenodes [master]
+master: hadoop@master: Permission denied (publickey,password).
+\end{lstlisting}
+
+\textbf{Phân tích lỗi:} Script \texttt{start-dfs.sh} khởi động NameNode và SecondaryNameNode bằng cách SSH vào node \texttt{master} từ chính nó. Nếu public key của master chưa được thêm vào \texttt{authorized\_keys} của chính nó, kết nối SSH tự lặp (self-SSH) sẽ bị từ chối.
+
+\textbf{Cách khắc phục:} Thêm public key vào \texttt{authorized\_keys} của chính master:
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Tao SSH key neu chua co
+ssh-keygen -t rsa -P "" -f ~/.ssh/id_rsa
+
+# Them public key vao authorized_keys cua chinh minh
+cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+
+# Kiem tra SSH tu master vao chinh master
+ssh master
+\end{lstlisting}
+
+Lần SSH đầu tiên sẽ hỏi xác nhận fingerprint, gõ \texttt{yes}. Sau đó chạy lại \texttt{start-dfs.sh}.
+
+\subsubsection{Lỗi: YARN Web UI chỉ bind \texttt{127.0.1.1}, không truy cập được từ máy thật}
+
+Khi kiểm tra port, YARN đang lắng nghe trên \texttt{127.0.1.1:8088} thay vì \texttt{0.0.0.0:8088}:
+
+\begin{lstlisting}[language=bash, numbers=none]
+$ ss -tlnp | grep 8088
+LISTEN 0  500  127.0.1.1:8088  0.0.0.0:*
+\end{lstlisting}
+
+\textbf{Phân tích lỗi:} Hostname \texttt{master} trong \texttt{/etc/hosts} được Ubuntu tự động map sang \texttt{127.0.1.1} (local loopback). ResourceManager bind vào địa chỉ này, không thể truy cập từ máy thật qua mạng Host-Only.
+
+\textbf{Cách khắc phục:} Thêm property \texttt{yarn.resourcemanager.webapp.address} vào \texttt{yarn-site.xml} để bind tất cả interface:
+
+\begin{lstlisting}[language=xml, numbers=none]
+<property>
+  <name>yarn.resourcemanager.webapp.address</name>
+  <value>0.0.0.0:8088</value>
+</property>
+\end{lstlisting}
+
+Khởi động lại YARN:
+
+\begin{lstlisting}[language=bash, numbers=none]
+stop-yarn.sh
+start-yarn.sh
+# Xac nhan
+ss -tlnp | grep 8088   # phai thay 0.0.0.0:8088
+\end{lstlisting}
+
+Sau đó truy cập \texttt{http://192.168.56.10:8088} từ browser trên máy thật.
+
+\subsubsection{Lỗi: HDFS hiện \texttt{Live Nodes: 0} hoặc YARN hiện \texttt{Active Nodes: 0}}
+
+Sau khi khởi động cluster, Web UI báo không có DataNode hoặc NodeManager nào kết nối dù tiến trình đang chạy trên worker.
+
+\textbf{Phân tích lỗi:} File \texttt{/etc/hosts} trên Ubuntu Server được tự sinh kèm dòng \texttt{127.0.1.1 master} trong quá trình cài đặt. Khi ta thêm dòng \texttt{192.168.56.10 master} phía dưới, Linux vẫn ưu tiên dòng đầu tiên \textemdash DataNode và NodeManager trên worker kết nối tới \texttt{127.0.1.1} (lo loopback) thay vì IP thực của master.
+
+\textbf{Kiểm tra:}
+
+\begin{lstlisting}[language=bash, numbers=none]
+cat /etc/hosts | grep master
+# Neu thay 2 dong: 127.0.1.1 master VA 192.168.56.10 master -> co loi
+\end{lstlisting}
+
+\textbf{Cách khắc phục:} Xóa dòng \texttt{127.0.1.1 master} trên tất cả worker:
+
+\begin{lstlisting}[language=bash, numbers=none]
+# SSH vao tung worker va xoa dong trung
+ssh hadoop@192.168.56.11
+sudo sed -i '/^127.0.1.1 master/d' /etc/hosts
+exit
+
+ssh hadoop@192.168.56.12
+sudo sed -i '/^127.0.1.1 master/d' /etc/hosts
+exit
+\end{lstlisting}
+
+Khởi động lại cụm:
+
+\begin{lstlisting}[language=bash, numbers=none]
+stop-dfs.sh && stop-yarn.sh
+start-dfs.sh && start-yarn.sh
+\end{lstlisting}
+
+Web UI tại \texttt{http://192.168.56.10:9870} phải hiện \texttt{Live Nodes: 2} và \texttt{http://192.168.56.10:8088} hiện \texttt{Active Nodes: 2}.

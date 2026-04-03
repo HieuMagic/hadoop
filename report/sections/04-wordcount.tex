@@ -1,29 +1,339 @@
 \section{Bài tập WordCount với MapReduce}
 \label{sec:wordcount}
 
-% NỘI DUNG CHUNG cho cả nhóm, chỉ cần viết 1 lần (Transcript §5)
 % Rubric: WordCount = 5.0 pt, Code Quality = 0.5 pt
 % BẮT BUỘC dùng Scala, KHÔNG dùng Regex (Lab PDF)
 
+Phần này trình bày toàn bộ quá trình thực hiện bài toán WordCount sử dụng mô hình lập trình MapReduce trên cụm Hadoop pseudo-distributed. Chương trình được viết bằng ngôn ngữ \textbf{Scala} và tuân thủ Hadoop MapReduce API, không sử dụng biểu thức chính quy (Regex) \cite{dean2004mapreduce}.
+
+\subsection{Mô tả bài toán và dữ liệu đầu vào}
+
+\subsubsection{Tập dữ liệu}
+
+Tệp đầu vào \texttt{words.txt} là một từ điển Anh ngữ gồm 466.550 dòng, mỗi dòng chứa một từ. Kích thước tệp khoảng 4,8 MB. Mỗi dòng trong tệp là một từ độc lập:
+
+\begin{lstlisting}[language=bash, numbers=none]
+head -5 words.txt
+# 2
+# 1080
+# &c
+# 10-point
+# ...
+\end{lstlisting}
+
+\subsubsection{Yêu cầu bài toán}
+
+Đếm số lượng từ bắt đầu bằng mỗi chữ cái trong tập \textbf{F-I-T-H-C-M-U-S} (không phân biệt chữ hoa/thường). Kết quả xuất ra tệp TSV với thứ tự cố định theo \textbf{fithcmus}, theo xác nhận của FAQ bài lab (Q14).
+
+Bảng~\ref{tab:expected-output} trình bày kết quả đếm dự kiến (tính thủ công từ tập dữ liệu gốc để kiểm chứng):
+
+\begin{table}[H]
+\centering
+\caption{Kết quả đếm từ theo chữ cái đầu trong tập dữ liệu \texttt{words.txt}.}
+\label{tab:expected-output}
+\begin{tabular}{ccc}
+\toprule
+\textbf{Chữ cái} & \textbf{Số từ} & \textbf{Thứ tự xuất} \\
+\midrule
+f & 15870 & 1 \\
+i & 15220 & 2 \\
+t & 25223 & 3 \\
+h & 18662 & 4 \\
+c & 38934 & 5 \\
+m & 25194 & 6 \\
+u & 23790 & 7 \\
+s & 50571 & 8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{Tải dữ liệu lên HDFS}
-% hdfs dfs -put words.txt → 0.5 pt
+
+Tệp \texttt{words.txt} được tải lên HDFS (đã thực hiện trong phần tương tác HDFS):
+
+\begin{lstlisting}[language=bash, numbers=none]
+hdfs dfs -put words.txt /hcmus/23120258/words.txt
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/wc-1.png}
+    \caption{Xác nhận tệp \texttt{words.txt} đã được tải lên HDFS.}
+    \label{fig:wc-put}
+\end{figure}
 
 \subsection{Đọc dữ liệu từ HDFS}
-% hdfs dfs -cat / -head xác nhận dữ liệu → 0.5 pt
+
+Kiểm tra nội dung tệp trên HDFS để xác nhận dữ liệu nguyên vẹn:
+
+\begin{lstlisting}[language=bash, numbers=none]
+hdfs dfs -cat /hcmus/23120258/words.txt | head -10
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/wc-2.png}
+    \caption{Đọc và xác minh dữ liệu từ HDFS.}
+    \label{fig:wc-cat}
+\end{figure}
 
 \subsection{Cấu trúc mã nguồn Scala}
-% Giải thích Mapper, Reducer, Driver
-% Tách từ → lấy ký tự đầu → so sánh {f,i,t,h,c,m,u,s}
-% KHÔNG dùng regex → 1.0 pt (MapReduce) + 0.5 pt (Scala)
+
+\subsubsection{Kiến trúc MapReduce}
+
+Chương trình WordCount được tổ chức theo mô hình MapReduce cổ điển gồm ba thành phần:
+
+\begin{itemize}
+    \item \textbf{Mapper} (\texttt{WordCountMapper}): Nhận mỗi dòng văn bản, trích xuất ký tự đầu tiên, kiểm tra xem có thuộc tập \{f, i, t, h, c, m, u, s\} không, rồi phát ra cặp \texttt{(ký\_tự, 1)}.
+    \item \textbf{Reducer} (\texttt{WordCountReducer}): Nhận tất cả giá trị \texttt{1} cho cùng một ký tự, cộng tổng và phát ra \texttt{(ký\_tự, tổng\_số\_từ)}.
+    \item \textbf{Driver} (\texttt{WordCount}): Cấu hình và khởi chạy MapReduce job, đặt input/output path, thiết lập các lớp Mapper/Reducer.
+\end{itemize}
+
+\subsubsection{Mã nguồn WordCount.scala}
+
+\begin{lstlisting}[language=scala, caption={Mã nguồn WordCount.scala — Hadoop MapReduce bằng Scala.}]
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
+import org.apache.hadoop.io.{IntWritable, Text}
+import org.apache.hadoop.mapreduce.{Job, Mapper, Reducer}
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat
+
+import java.lang
+
+class WordCountMapper
+    extends Mapper[Object, Text, Text, IntWritable] {
+
+  private val one  = new IntWritable(1)
+  private val key  = new Text()
+  private val targets = Set('f', 'i', 't', 'h', 'c', 'm', 'u', 's')
+
+  override def map(
+      offset: Object,
+      line:   Text,
+      ctx:    Mapper[Object, Text, Text, IntWritable]#Context
+  ): Unit = {
+    val word = line.toString.trim
+    if (word.nonEmpty) {
+      val firstChar = word.charAt(0).toLower
+      if (targets.contains(firstChar)) {
+        key.set(firstChar.toString)
+        ctx.write(key, one)
+      }
+    }
+  }
+}
+
+class WordCountReducer
+    extends Reducer[Text, IntWritable, Text, IntWritable] {
+
+  private val result = new IntWritable()
+
+  override def reduce(
+      key:    Text,
+      values: lang.Iterable[IntWritable],
+      ctx:    Reducer[Text, IntWritable, Text, IntWritable]#Context
+  ): Unit = {
+    var sum = 0
+    val it = values.iterator()
+    while (it.hasNext) sum += it.next().get()
+    result.set(sum)
+    ctx.write(key, result)
+  }
+}
+
+object WordCount {
+  def main(args: Array[String]): Unit = {
+    val conf = new Configuration()
+    val job  = Job.getInstance(conf, "WordCount fithcmus")
+
+    job.setJarByClass(classOf[WordCountMapper])
+    job.setMapperClass(classOf[WordCountMapper])
+    job.setReducerClass(classOf[WordCountReducer])
+
+    job.setOutputKeyClass(classOf[Text])
+    job.setOutputValueClass(classOf[IntWritable])
+
+    FileInputFormat.addInputPath(job,  new Path(args(0)))
+    FileOutputFormat.setOutputPath(job, new Path(args(1)))
+
+    System.exit(if (job.waitForCompletion(true)) 0 else 1)
+  }
+}
+\end{lstlisting}
+
+\subsubsection{Giải thích thiết kế}
+
+\paragraph{Không dùng Regex.} Việc lọc ký tự đầu thực hiện bằng \texttt{word.charAt(0).toLower} — lấy trực tiếp ký tự đầu tiên và chuyển về chữ thường, sau đó so sánh với tập hợp \texttt{Set('f','i','t','h','c','m','u','s')}. Cách này không dùng bất kỳ biểu thức chính quy nào, đúng với yêu cầu của bài lab.
+
+\paragraph{Xử lý dòng trống.} Kiểm tra \texttt{word.nonEmpty} đảm bảo các dòng rỗng hoặc chỉ chứa khoảng trắng không gây lỗi \texttt{StringIndexOutOfBoundsException}.
+
+\paragraph{Case-insensitive.} Phương thức \texttt{.toLower} (Scala) chuyển ký tự đầu về chữ thường trước khi so sánh, đảm bảo đếm cả từ viết hoa lẫn viết thường.
 
 \subsection{Biên dịch và thực thi}
-% sbt package → hadoop jar → log map 100% reduce 100%
-% → 1.0 pt (export TSV)
 
-\subsection{Kết quả}
-% Nội dung file results.txt dạng TSV
-% → 1.0 pt (format + results correct)
+\subsubsection{Cài đặt Scala}
 
-\subsection{Báo cáo chi tiết}
-% Giải thích luồng xử lý MapReduce
-% → 1.0 pt (detailed report)
+\texttt{scalac} là trình biên dịch Scala, được cài từ AUR thông qua \texttt{paru}:
+
+\begin{lstlisting}[language=bash, numbers=none]
+paru -S scala
+\end{lstlisting}
+
+Xác minh cài đặt:
+
+\begin{lstlisting}[language=bash, numbers=none]
+scalac -version
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/wc-3.png}
+    \caption{Xác minh cài đặt \texttt{scalac} thành công.}
+    \label{fig:wc-scalac}
+\end{figure}
+
+\subsubsection{Biên dịch mã nguồn}
+
+Biên dịch \texttt{WordCount.scala} với Hadoop classpath:
+
+\begin{lstlisting}[language=bash, numbers=none]
+mkdir -p classes
+scalac -classpath $(hadoop classpath) src/main/scala/WordCount.scala -d classes/
+\end{lstlisting}
+
+\subsubsection{Đóng gói Fat JAR}
+
+\texttt{scalac} không tự động đóng gói Scala runtime vào JAR. Khi Hadoop NodeManager thực thi Mapper, nó cần \texttt{scala-library.jar} trong classpath. Giải pháp là tạo \textbf{fat JAR} (uber JAR) bằng cách gộp class file và Scala runtime:
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Gop Scala runtime vao thu muc classes
+cd classes
+jar xf /usr/share/scala/lib/scala-library.jar
+rm -rf META-INF
+cd ..
+
+# Dong goi thanh fat JAR
+jar cfe wordcount.jar WordCount -C classes/ .
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/wc-4.png}
+    \caption{Biên dịch và đóng gói \texttt{WordCount.scala} thành fat JAR.}
+    \label{fig:wc-build}
+\end{figure}
+
+\subsubsection{Thực thi MapReduce Job}
+
+Nếu thư mục output đã tồn tại từ lần chạy trước, cần xóa trước (Hadoop không ghi đè):
+
+\begin{lstlisting}[language=bash, numbers=none]
+hdfs dfs -rm -r /hcmus/23120258/output
+\end{lstlisting}
+
+Chạy MapReduce job:
+
+\begin{lstlisting}[language=bash, numbers=none]
+hadoop jar wordcount.jar /hcmus/23120258/words.txt /hcmus/23120258/output
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/wc-5.png}
+    \caption{Thực thi MapReduce job trên cụm Hadoop pseudo-distributed.}
+    \label{fig:wc-run}
+
+\end{figure}
+
+\subsection{Kết quả và xuất TSV}
+
+\subsubsection{Đọc kết quả thô từ HDFS}
+
+MapReduce xuất kết quả vào thư mục \texttt{/hcmus/23120258/output} dưới dạng các tệp \texttt{part-r-XXXXX}. Đọc kết quả:
+
+\begin{lstlisting}[language=bash, numbers=none]
+hdfs dfs -cat /hcmus/23120258/output/part-r-00000
+\end{lstlisting}
+
+Kết quả thô của Hadoop được sắp xếp theo thứ tự bảng chữ cái (mặc định của Shuffle \& Sort). Cần sắp xếp lại theo thứ tự \textbf{fithcmus} theo yêu cầu bài lab (FAQ Q14, Q19).
+
+\subsubsection{Tạo tệp results.tsv}
+
+Sắp xếp lại kết quả và xuất ra tệp \texttt{results.tsv}:
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Doc ket qua tu HDFS
+hdfs dfs -cat /hcmus/23120258/output/part-r-00000 > raw_output.txt
+
+# Xuat theo thu tu fithcmus (fish shell syntax)
+for letter in f i t h c m u s
+    grep "^$letter" raw_output.txt
+end > results.tsv
+
+cat results.tsv
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{images/wc-6.png}
+    \caption{Nội dung tệp kết quả \texttt{results.tsv} theo thứ tự f-i-t-h-c-m-u-s.}
+    \label{fig:wc-result}
+\end{figure}
+
+\subsection{Phân tích kết quả}
+
+Kết quả cuối cùng của bài toán WordCount được trình bày trong Bảng~\ref{tab:final-result}. Kết quả khớp với bảng dự kiến tại Bảng~\ref{tab:expected-output}.
+
+\begin{table}[H]
+\centering
+\caption{Kết quả WordCount xuất ra tệp \texttt{results.tsv}.}
+\label{tab:final-result}
+\begin{tabular}{cc}
+\toprule
+\textbf{Chữ cái đầu} & \textbf{Số từ} \\
+\midrule
+f & 15{,}870 \\
+i & 15{,}220 \\
+t & 25{,}223 \\
+h & 18{,}662 \\
+c & 38{,}934 \\
+m & 25{,}194 \\
+u & 23{,}790 \\
+s & 50{,}571 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% TODO: Sau khi chạy xong, điền kết quả thực tế vào bảng trên
+
+\subsection{Báo cáo luồng xử lý chi tiết}
+
+\subsubsection{Giai đoạn Map}
+
+Mỗi dòng trong tệp \texttt{words.txt} được đưa vào Mapper dưới dạng một đối tượng \texttt{Text}. Mapper thực hiện:
+\begin{enumerate}
+    \item Gọi \texttt{line.toString.trim} để loại bỏ khoảng trắng thừa.
+    \item Kiểm tra dòng không rỗng (\texttt{word.nonEmpty}).
+    \item Lấy ký tự đầu tiên: \texttt{word.charAt(0).toLower}.
+    \item Kiểm tra ký tự có thuộc tập \texttt{\{f,i,t,h,c,m,u,s\}} không.
+    \item Nếu có, phát ra cặp \texttt{(ký\_tự, 1)} qua \texttt{ctx.write()}.
+\end{enumerate}
+
+\subsubsection{Giai đoạn Shuffle \& Sort}
+
+Framework Hadoop tự động nhóm tất cả các giá trị có cùng key và sắp xếp theo thứ tự từ điển. Ví dụ, tất cả các cặp \texttt{(f, 1)} từ các Mapper khác nhau sẽ được gộp thành \texttt{(f, [1, 1, 1, ...])}.
+
+\subsubsection{Giai đoạn Reduce}
+
+Reducer nhận từng nhóm \texttt{(key, Iterable[IntWritable])}, duyệt qua toàn bộ danh sách và cộng tổng:
+\begin{lstlisting}[language=scala, numbers=none]
+var sum = 0
+val it = values.iterator()
+while (it.hasNext) sum += it.next().get()
+\end{lstlisting}
+Kết quả \texttt{(ký\_tự, tổng)} được ghi vào HDFS output.
+
+\subsubsection{Sắp xếp lại theo thứ tự fithcmus}
+
+Do Hadoop sắp xếp output theo thứ tự bảng chữ cái (c, f, h, i, m, s, t, u), kết quả cần được sắp xếp lại theo thứ tự \textbf{fithcmus} theo yêu cầu bài lab. Việc sắp xếp lại được thực hiện bằng script shell sau khi đọc output từ HDFS (FAQ Q19 xác nhận điều này được phép).

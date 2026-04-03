@@ -1,30 +1,36 @@
-,STT,Nội dung câu hỏi,Giải đáp
-,1,Dạ thầy và cô cho em hỏi là ở phần cài đặt pseudo-distributed Hadoop thì mình không bắt buộc phải cài đặt thêm Yarn phải không ạ?,"Ở chế độ Pseudo-distributed thì đúng là không bắt buộc em nhé. Tuy nhiên, để các tác vụ (job) MapReduce có thể chạy được trơn tru thì nên có sự điều phối của YARN. Vì vậy nếu em cài được YARN trước thì sẽ tiện hơn khi cài fully-distributed để đỡ lỗi nhé"
-,2,"Dạ thầy/cô cho em hỏi trong tài liệu Lab 1 có ghi sinh viên được chọn một trong các phương thức như Ubuntu Native, Docker, VM hoặc WSL để cài Hadoop cluster. Vậy nếu tất cả thành viên nhóm đều chọn cài đặt trên 1 phương thức (ví dụ Docker) có bị mất điểm không ạ?","Trong bài lab 1, vì phần chấm điểm là chấm theo cá nhân nên nếu cả nhóm cùng một phương thức vẫn không sao em nhé, trong bài lab ghi như vậy là để các bạn có nhiều lựa chọn và tùy vào OS các bạn dùng mà chọn ra phù hợp nhé nên các bạn cứ thoải mái chọn"
-,3,"Thầy ơi cho em hỏi : cài hadoop bằng phương thức Docker mà kéo Image có sẵn về máy , thì có bị trừ điểm hay không ạ?","Chào em, câu trả lời là KHÔNG ĐƯỢC nhé.
+Dạ thầy và cô cho em hỏi là ở phần cài đặt pseudo-distributed Hadoop thì mình không bắt buộc phải cài đặt thêm Yarn phải không ạ?,"Ở chế độ Pseudo-distributed thì đúng là không bắt buộc em nhé. Tuy nhiên, để các tác vụ (job) MapReduce có thể chạy được trơn tru thì nên có sự điều phối của YARN. Vì vậy nếu em cài được YARN trước thì sẽ tiện hơn khi cài fully-distributed để đỡ lỗi nhé"
+"Dạ thầy/cô cho em hỏi trong tài liệu Lab 1 có ghi sinh viên được chọn một trong các phương thức như Ubuntu Native, Docker, VM hoặc WSL để cài Hadoop cluster. Vậy nếu tất cả thành viên nhóm đều chọn cài đặt trên 1 phương thức (ví dụ Docker) có bị mất điểm không ạ?","Trong bài lab 1, vì phần chấm điểm là chấm theo cá nhân nên nếu cả nhóm cùng một phương thức vẫn không sao em nhé, trong bài lab ghi như vậy là để các bạn có nhiều lựa chọn và tùy vào OS các bạn dùng mà chọn ra phù hợp nhé nên các bạn cứ thoải mái chọn"
+"Thầy ơi cho em hỏi : cài hadoop bằng phương thức Docker mà kéo Image có sẵn về máy , thì có bị trừ điểm hay không ạ?","Chào em, câu trả lời là KHÔNG ĐƯỢC nhé.
 Mục tiêu của Lab 1 (phần 1.2) yêu cầu rất rõ là các em phải tự tay set up (BY YOURSELF). Nếu em kéo một image người ta đã build sẵn Hadoop và cấu hình sẵn các file xml về chạy, em sẽ không có quá trình step-by-step setup và fix lỗi để đưa vào Report. Điều này đồng nghĩa với việc nhóm em sẽ mất điểm phần cài đặt và báo cáo."
-,4,"Dạ em xin phép hỏi ở phần ""fully distributed"": 
+"Dạ em xin phép hỏi ở phần ""fully distributed"": 
 1. Mỗi thành viên có thể tự cài đặt với option ""Fully-distributed mode with YARN on virtual machines"", và trong report của nhóm cũng sẽ gồm các phần báo cáo riêng về ""fully distributed setups"" của từng thành viên đúng không ạ?
 2. Nếu nhóm chọn option ""Fully-distributed mode with YARN on physically separated machines"" thì nhóm chỉ cần báo cáo chung về phần này trong report đúng không ạ?
-3. Nếu nhóm có 2 bạn A & B chọn option ""virtual machines"" và 2 bạn C & D chọn ""physically separated machines"", thì trong report của nhóm sẽ gồm 3 phần cho ""fully distributed"" (bao gồm 2 phần về ""virtual machines"" của A & B và 1 phần về ""physically separated machines"" của C & D) đúng không ạ?",
-,5,"Dạ thầy cho em hỏi ở phần Fully-distributed, nếu chọn set up bằng Docker containers (viết file docker-compose.yml để set up) thì có được điểm bonus trọn vẹn không ạ?",
-,6,Kết quả của file results.txt sau khi chạy wordcount có cần phải sắp xếp theo đúng thứ tự fithcmus hay theo bảng chữ cái ABC cũng được ạ?,
-,7,,
-,8,,
-,9,,
-,10,,
-,11,,
-,12,,
-,13,,
-,14,,
-,15,,
-,16,,
-,17,,
-,18,,
-,19,,
-,20,,
-,21,,
-,22,,
-,23,,
-,24,,
-,25,,
+3. Nếu nhóm có 2 bạn A & B chọn option ""virtual machines"" và 2 bạn C & D chọn ""physically separated machines"", thì trong report của nhóm sẽ gồm 3 phần cho ""fully distributed"" (bao gồm 2 phần về ""virtual machines"" của A & B và 1 phần về ""physically separated machines"" của C & D) đúng không ạ?","1. Theo quy định, nếu nhóm có n thành viên thì cần hoàn thành n - 1 bản cài đặt Fully-distributed. Nếu mỗi bạn tự dựng một cụm VM hoặc Docker riêng (đảm bảo ít nhất 2 workers ) thì trong report cứ chia thành các mục tương ứng cho từng bạn. Mục đích ở đây để n-1 là để giảm nhẹ trọng lượng công việc cho nhóm, nhóm sẽ luôn có 1 bạn không cần cài để hỗ trợ các bạn khác ở phần báo cáo, v,v nhưng vẫn cần mode pseudo nhé
+
+2. Đúng, vì physically separated machines bản chất là cả nhóm cùng làm chung (nối máy với nhau), nên report chung 1 phần là hợp lý. Tuy nhiên mỗi thành viên tham gia vẫn nên có screenshot từ máy của mình để chứng minh mình có tham gia setup. Phần report chung này có thể đặt trong folder của 1 bạn đại diện, các thành viên còn lại reference tới
+
+3. Cách đếm như vậy cũng đúng em nhé vì nhóm 4 tổng vẫn ra 3 reports"
+"Dạ thầy cho em hỏi ở phần Fully-distributed, nếu chọn set up bằng Docker containers (viết file docker-compose.yml để set up) thì có được điểm bonus trọn vẹn không ạ?","Được em nhé, miễn là em đảm bảo ít nhất 2 workers (tức ít nhất 2 DataNode/NodeManager containers tách biệt, không tính NameNode"
+Kết quả của file results.txt sau khi chạy wordcount có cần phải sắp xếp theo đúng thứ tự fithcmus hay theo bảng chữ cái ABC cũng được ạ?,"Nên follow theo thứ tự của fithcmus em nhé, vì phần kết quả này chấm auto nên là nếu alphabet đôi khi mình phải kiểm tra lại bằng tay, có thể bị sót nhé"
+Cho em hỏi là nếu mình cài phần cá nhân bằng WSL sau đó cài phần fully-distributed bằng docker thì không cần tự báo cáo lại phần cài đặt từ đầu mà chỉ báo cáo phần khác có được không ạ?,"Được em nhé, chỉ cần report những gì khác biệt so với pseudo-distributed như cách viết Dockerfile/docker-compose, config cho multi-node (workers file, core-site.xml trỏ tới NameNode container), cách các container giao tiếp với nhau, và screenshot chứng minh cluster hoạt động"
+Em cài luôn fully distributed sau đó làm luôn phần verification trên đó mà không cần phần pseudo-distributed được không ạ? Do em thấy trong phân bố điểm chỉ yêu cầu cài được Hadoop là được ạ.,"Về bản chất thì vẫn được em nhé, nếu em tự tin nhé. Tuy nhiên thì mình vẫn khuyến khích vẫn nên cài pseudo-distributed trước vì: 
+- Thứ nhất, nó đơn giản hơn nhiều, nếu lỡ fully-distributed bị lỗi thì vẫn có pseudo để chạy verification và không bị trừ 4.5 điểm.
+- Thứ hai, các lab sau cũng dùng pseudo-distributed để làm bài, nên cài sẵn cho tiện. Nhưng nếu bạn tự tin fully-distributed chạy ngon rồi thì chạy verification trên đó cũng chấp nhận được, miễn jar chạy thành công và xuất ra file verification.txt."
+Dạ thầy/cô cho em hỏi sau khi em chạy word count thì ra file result.txt không đúng thứ tự fithcmus thì em có thể sửa thủ công lại không ạ hay là bắt buộc trong code phải có phần đó ạ?,"Được em nhé, không vấn đề gì, vì đề chấm format file TSV và kết quả đúng, không chấm ""cách bạn sort"". Tuy nhiên trong report nên ghi rõ ""output gốc từ MapReduce theo thứ tự alphabetical, em đã sắp xếp lại theo thứ tự đề yêu cầu"" cho minh bạch"
+"Dạ thưa thầy, ở phần setup fully-distributed thì ở phần Instructions yêu cầu là có thể cài đặt 1 trong 2 cách là Virutal Machines hoặc là Physical Machines nhưng ở thang điểm thì có mục ""YARN on virtual machines and physically distributed machines"" tức là phải cài đặt theo hai cách mới được full điểm nội dung setup fully-distributed đúng không ạ ? ","Đúng nhé, với yêu cầu n-1 setup thì nhóm phân bổ sao cho mỗi cách tối thiểu 1 là được"
+Nếu em cài fully distributed nhưng chạy .jar trên pseudo-distributed có được không ạ(em đọc câu 8 rồi ạ),"Như câu trả lời 8 nha em :v, được"
+"Phần WordCount cũng báo cáo, screenshot luôn đúng không ạ","Có càng tốt nha em, chi tiết và chứng minh mình làm là dược"
+"Như câu 10, nếu cả n-1 bạn chỉ dùng vm thôi thì điểm sẽ sao thày",Được 0.75 phần đó thay vì 1.5 em nhé do yêu cầu vẫn cần các em làm dạng Physical để kết nôi máy với nhau
+"Vì mỗi thành viên đều thực hiện đầy đủ các bước từ Pseudo đến Fully-distributed, nếu chúng em gộp 4 bài báo cáo cá nhân vào một file tổng thì các phần hướng dẫn cài đặt và lệnh thực thi sẽ bị lặp lại và có thể trùng 1 số nội dung và bài báo cáo sẽ rất dài. Vậy nhóm có thể trình bày một bộ quy trình chuẩn chung và chỉ tách riêng phần hình ảnh minh chứng (screenshots) và lỗi (errors) của từng cá nhân được không ạ hay là chỉ cần gộp lại các bài báo cáo của các thành viên lại ạ ? Thầy có mong muốn cấu trúc cụ thể nào cho báo cáo nhóm để vừa thể hiện đóng góp từng cá nhân vừa tránh lặp nội dung không ạ?","Để tách bạch cho gọn thì nhóm có thể cân nhắc mỗi bạn một report, mặc dù quy trình như nhau mà các minh chứng và lỗi khác nhau để chứng minh là các bạn tự làm được rồi
+Hoặc để tiện cho nhóm thì các bạn cứ thấy cách nào tiện các bạn làm nhé và nhớ note lại trong báo cáo giúp mình để mình nắm cách các bạn report"
+Cho em hỏi là code cho bài Word Count thì src code em nhiều file .scala được không ạ hay chỉ được 1 file WordCount.scala thôi ạ,được em
+"Dạ vậy là file hadoop-test.jar chỉ cần chạy cho phần pseudo-distributed thôi đúng không ạ? 
+(em đã đọc câu 8 & 10)",đúng
+"Có thể sử dụng image có sẵn khi viết file docker-compose.yml không ạ? Các cấu hình về ports, environment,... thì sẽ tự viết ạ. Nếu như vậy thì có mất điểm không thầy?
+Em đã đọc câu 3 nhưng không biết là ý đó dành cho pseudo-distributed thôi hay dành cho cả fully-distributed nữa ấy ạ.","Như câu 3 nha, KHÔNG ĐƯỢC TRONG MỌI TÌNH HUỐNG"
+"Dạ ngoài src/WordCount/[results.txt, WordCount.scala], nếu có các code của docker thì sẽ nộp vào src/Fully_distributed/[docker-compose.yml, Dockerfile, /config/...] đúng không ạ?",Được em
+"Thầy ơi, em cài fully-distributed bằng cách pull image ubuntu:22.04 (không phải image Hadoop có sẵn), sau đó tự cài Java, SSH, wget Hadoop từ Apache, tự cấu hình toàn bộ các file XML và dùng docker commit để tạo image riêng, rồi dùng image đó để tạo các container worker. Cách làm này có hợp lệ không ạ?""",được
+Phần report cá nhân mỗi bạn tự làm rồi bỏ vô thư mục mssv của bạn đó phải không ạ?,đúng em
+Cho em hỏi định dạng file result của wordcount là .txt hay .tsv vậy ạ?,.tsv nhé
+Dạ Thầy ơi Thầy có thể extend cho tụi em thêm 1-2 ngày để báo cáo có thể được hoàn chỉnh nhất có thể được không ạ. Do nhiều thắc mắc và vấn đề trong suốt quá trình cài đặt các phần của bài Lab nên tụi em cứ làm rồi sửa làm rồi sửa nên tới giờ vẫn chưa được hoàn thiện nữa ạ. ,Phần này thầy Đăng sẽ quyết và thông báo cho các bạn sau nhé
+"Dạ Thầy ơi, cho em hỏi trong phần ""Fully-distributed mode with YARN on virtual machines"" và ""Fully-distributed mode with YARN on physically separated machines"" thì mình cần chạy lại wordcount cho mỗi phần setup này không ạ? Em xin cảm ơn ạ",1 lần trên pseudo-distributed là được
